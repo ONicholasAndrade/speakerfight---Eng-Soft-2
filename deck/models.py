@@ -315,6 +315,10 @@ class Track(models.Model):
 class Event(DeckBaseModel):
     allow_public_voting = models.BooleanField(_('Allow Public Voting'),
                                               default=True)
+    accept_proposals_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
     closing_date = models.DateTimeField(null=False, blank=False)
     slots = models.SmallIntegerField(_('Slots'), default=10)
 
