@@ -43,4 +43,4 @@ jobs:
           DJANGO_SETTINGS_MODULE: speakerfight.settings
         run: |
           python manage.py test deck.tests
-          python manage.py test acceptance_tests.test_proposal_window
+          python acceptance_tests/test_proposal_window.py
