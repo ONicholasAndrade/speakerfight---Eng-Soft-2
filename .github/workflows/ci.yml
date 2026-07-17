@@ -15,17 +15,23 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    container:
+      image: python:2.7
+
+
     steps:
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
 
-      - name: Build Docker environment
+      - name: Install dependencies
         run: |
-          docker compose -f docker-compose.yml build
+          pip install -r requirements.txt
 
 
       - name: Run Django tests
+        env:
+          DJANGO_SETTINGS_MODULE: speakerfight.settings
         run: |
-          docker compose -f docker-compose.yml run --rm web python manage.py test
+          python manage.py test
