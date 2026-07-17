@@ -37,37 +37,63 @@ class BaseEventView(object):
 class ListEvents(BaseEventView, ListView):
     allow_empty = True
     past_events = False
+    events_per_page = 15
 
     def get_queryset(self):
         queryset = super(ListEvents, self).get_queryset()
         queryset = queryset.published_ones()
+        queryset = self.filter_events(queryset)
 
-        # When it should only show past events
+        return self.paginate_events(queryset)
+
+    def filter_events(self, queryset):
         if self.past_events:
-            queryset = queryset.filter(closing_date__lt=timezone.now())
+            queryset = self.filter_past_events(queryset)
 
-        criteria = self.request.GET.get(u'search', None)
+        criteria = self.get_search_criteria()
+
         if criteria:
-            queryset = queryset.filter(
-                models.Q(title__icontains=criteria) |
-                models.Q(description__icontains=criteria)
-            )
-        elif not self.past_events:
-            queryset = queryset.upcoming()
+            return self.filter_by_search(queryset, criteria)
 
-        paginator = Paginator(queryset, 15)
+        if not self.past_events:
+            return queryset.upcoming()
+
+        return queryset
+
+    def filter_past_events(self, queryset):
+        return queryset.filter(
+            closing_date__lt=timezone.now()
+        )
+
+    def get_search_criteria(self):
+        return self.request.GET.get(u'search', None)
+
+    def filter_by_search(self, queryset, criteria):
+        return queryset.filter(
+            models.Q(title__icontains=criteria) |
+            models.Q(description__icontains=criteria)
+        )
+
+    def paginate_events(self, queryset):
+        paginator = Paginator(queryset, self.events_per_page)
         page = self.request.GET.get('page')
 
         try:
-            queryset = paginator.page(page)
+            return paginator.page(page)
         except PageNotAnInteger:
-            queryset = paginator.page(1)
+            return paginator.page(1)
         except EmptyPage:
-            # If page is out of range (e.g. 9999),
-            # deliver last page of results.
-            queryset = paginator.page(paginator.num_pages)
+            return paginator.page(paginator.num_pages)
 
-        return queryset
+    def get_context_data(self, **kwargs):
+        context = super(ListEvents, self).get_context_data(**kwargs)
+        context.update(
+            page_obj=None,
+            is_paginated=False,
+            paginator=None,
+            criteria=self.get_search_criteria(),
+        )
+        return context
 
     def get_context_data(self, **kwargs):
         context = super(ListEvents, self).get_context_data(**kwargs)
