@@ -31,8 +31,15 @@ jobs:
           pip install -r requirements-ci.txt
 
 
+      - name: Django system check
+          env:
+            DJANGO_SETTINGS_MODULE: speakerfight.settings
+          run: |
+            python manage.py check
+
+
       - name: Run Django tests
         env:
           DJANGO_SETTINGS_MODULE: speakerfight.settings
         run: |
-          python manage.py test
+          python manage.py test deck.tests acceptance_tests
