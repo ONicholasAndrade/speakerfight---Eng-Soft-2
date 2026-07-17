@@ -35,7 +35,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: speakerfight.settings
         run: |
-            python manage.py check
+          python manage.py check
 
 
       - name: Run Django tests
@@ -43,4 +43,4 @@ jobs:
           DJANGO_SETTINGS_MODULE: speakerfight.settings
         run: |
           python manage.py test deck.tests
-          python acceptance_tests/test_proposal_window.py
+          python manage.py test acceptance_tests
