@@ -263,6 +263,13 @@ class CreateProposal(LoginRequiredMixin,
                 self.request,
                 _(u"This Event doesn't accept Proposals anymore."))
             return HttpResponseRedirect(
+            reverse('view_event', kwargs={'slug': event.slug}),
+            )
+        if event.accept_proposals_at_not_reached:
+            messages.error(
+                self.request,
+                _(u"This Event doesn't accept Proposals yet."))
+            return HttpResponseRedirect(
                 reverse('view_event', kwargs={'slug': event.slug}),
             )
         return super(CreateProposal, self).get(request, *args, **kwargs)
