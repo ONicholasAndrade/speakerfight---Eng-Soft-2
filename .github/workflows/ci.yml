@@ -32,9 +32,9 @@ jobs:
 
 
       - name: Django system check
-          env:
-            DJANGO_SETTINGS_MODULE: speakerfight.settings
-          run: |
+        env:
+          DJANGO_SETTINGS_MODULE: speakerfight.settings
+        run: |
             python manage.py check
 
 
