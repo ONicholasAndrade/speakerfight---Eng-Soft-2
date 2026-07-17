@@ -236,16 +236,45 @@ class Proposal(Activity):
         return self.votes.filter(user=user).exists()
 
     def user_can_vote(self, user):
-        can_vote = False
-        if self.author == user and not self.event.author == user:
-            pass
-        elif self.event.allow_public_voting:
-            can_vote = True
-        elif user.is_superuser:
-            can_vote = True
-        elif self.event.jury.users.filter(pk=user.pk).exists():
-            can_vote = True
-        return can_vote
+        for rule in self.get_voting_rules():
+            decision = rule(user)
+
+            if decision is not None:
+                return decision
+
+        return False
+
+    def get_voting_rules(self):
+        return (
+            self._deny_proposal_author_vote,
+            self._allow_public_vote,
+            self._allow_superuser_vote,
+            self._allow_jury_vote,
+        )
+
+    def _deny_proposal_author_vote(self, user):
+        if self.author == user and self.event.author != user:
+            return False
+
+        return None
+
+    def _allow_public_vote(self, user):
+        if self.event.allow_public_voting:
+            return True
+
+        return None
+
+    def _allow_superuser_vote(self, user):
+        if user.is_superuser:
+            return True
+
+        return None
+
+    def _allow_jury_vote(self, user):
+        if self.event.jury.users.filter(pk=user.pk).exists():
+            return True
+
+        return None
 
     def user_can_approve(self, user):
         can_approve = False
