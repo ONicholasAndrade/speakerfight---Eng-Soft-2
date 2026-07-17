@@ -42,6 +42,19 @@ class EventModelTests(TestCase):
         self.event.jury.users.add(user)
         self.assertTrue(self.event.user_in_jury(user))
 
+    def test_accept_proposals_at_not_reached_is_false_when_field_is_empty(self):
+        self.assertFalse(self.event.accept_proposals_at_not_reached)
+
+    def test_accept_proposals_at_not_reached_is_true_before_the_date(self):
+        self.event.accept_proposals_at = timezone.now() + timedelta(days=1)
+        self.event.save()
+        self.assertTrue(self.event.accept_proposals_at_not_reached)
+
+    def test_accept_proposals_at_not_reached_is_false_after_the_date(self):
+        self.event.accept_proposals_at = timezone.now() - timedelta(days=1)
+        self.event.save()
+        self.assertFalse(self.event.accept_proposals_at_not_reached)
+
 
 class TrackModelTests(TestCase):
 

@@ -391,6 +391,22 @@ class EventTest(TestCase):
             reverse('create_event_proposal', kwargs={'slug': event.slug}))
         self.assertEqual(302, response.status_code)
 
+    def test_event_create_event_proposal_before_accept_proposals_at(self):
+        event_data = self.event_data.copy()
+        event_data.update(accept_proposals_at=now() + timedelta(hours=24))
+        event = Event.objects.create(**event_data)
+        response = self.client.post(
+            reverse('create_event_proposal', kwargs={'slug': event.slug}),
+            self.proposal_data, follow=True
+        )
+        message = _(u"This Event doesn't accept Proposals yet.")
+        self.assertIn(six.text_type(message), response.content.decode('utf-8'))
+        self.assertEquals(0, event.proposals.count())
+
+        response = self.client.get(
+            reverse('create_event_proposal', kwargs={'slug': event.slug}))
+        self.assertEqual(302, response.status_code)
+
     def test_export_votes_to_csv_queryset(self):
         event = Event.objects.create(**self.event_data)
         proposal = Proposal.objects.create(event=event, **self.proposal_data)
