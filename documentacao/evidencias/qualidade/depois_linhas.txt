@@ -1,0 +1,36 @@
+.quality-analysis/depois/views.py
+    LOC: 657
+    LLOC: 352
+    SLOC: 520
+    Comments: 3
+    Single comments: 3
+    Multi: 0
+    Blank: 134
+    - Comment Stats
+        (C % L): 0%
+        (C % S): 1%
+        (C + M % L): 0%
+.quality-analysis/depois/models.py
+    LOC: 473
+    LLOC: 300
+    SLOC: 371
+    Comments: 7
+    Single comments: 7
+    Multi: 0
+    Blank: 95
+    - Comment Stats
+        (C % L): 1%
+        (C % S): 2%
+        (C + M % L): 1%
+** Total **
+    LOC: 1130
+    LLOC: 652
+    SLOC: 891
+    Comments: 10
+    Single comments: 10
+    Multi: 0
+    Blank: 229
+    - Comment Stats
+        (C % L): 1%
+        (C % S): 1%
+        (C + M % L): 1%

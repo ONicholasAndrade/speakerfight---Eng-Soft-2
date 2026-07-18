@@ -1,0 +1,2 @@
+.quality-analysis/depois/views.py - A (20.59)
+.quality-analysis/depois/models.py - A (22.82)
