@@ -1,6 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+set -e
 
-python manage.py runserver 0.0.0.0:8000 &
-sleep 5
-
-python manage.py test acceptance_tests
+python manage.py check
+python manage.py test -v 2
