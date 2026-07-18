@@ -161,19 +161,38 @@ Nicholas ficou responsável ou participou diretamente dos seguintes documentos:
 - atualização do `README.md`;
 - organização das evidências da análise de qualidade.
 
-### 3.8 Participação na apresentação
+### 3.8 Testes Selenium, CI e documentação final
 
-Nicholas ficou responsável principalmente por apresentar:
+Nicholas realizou a complementação final dos testes de aceitação e da
+infraestrutura DevOps.
 
-- visão geral do Speakerfight;
-- arquitetura monolítica e padrão MTV;
-- Issue #304;
-- identificação dos code smells;
-- refatorações aplicadas;
-- Template Method;
-- cadeia de regras;
-- resultados da análise de qualidade;
-- comparação antes e depois das alterações.
+Principais atividades:
+
+- resolução dos conflitos durante a integração dos testes de aceitação;
+- correção da configuração de templates necessária para o funcionamento da suíte;
+- implementação de três testes de aceitação utilizando Selenium;
+- execução dos testes em um navegador Google Chrome real;
+- utilização de `StaticLiveServerTestCase` para disponibilizar a aplicação;
+- configuração do Selenium Server e do Chrome com Docker Compose;
+- adaptação do preenchimento do editor TinyMCE durante o teste de criação;
+- atualização do script de testes para executar a suíte completa;
+- atualização do GitHub Actions para executar Django e Selenium;
+- execução e aprovação dos 250 testes automatizados;
+- finalização de `documentacao/testes_devops.md`;
+- revisão final de `documentacao/contribuicoes.md` e do `README.md`.
+
+Os testes Selenium foram implementados no arquivo:
+
+```text
+acceptance_tests/test_proposal_window_selenium.py
+
+A execução local apresentou o seguinte resultado:
+
+Ran 250 tests in 6.652s
+OK
+System check identified no issues (0 silenced).
+
+```
 
 ---
 
@@ -197,52 +216,63 @@ Principais atividades:
 
 A implementação foi integrada pelo **PR #2**.
 
-### 4.2 Testes de aceitação
+### 4.2 Testes de aceitação iniciais
 
-Thiago ficou responsável pelos testes de aceitação do sistema.
+Thiago ficou responsável pela implementação inicial dos testes de aceitação da
+janela de propostas.
 
-A atividade está associada ao **PR #4** e contempla três ou mais cenários executados com Selenium ou Cypress.
+A atividade foi integrada pelo **PR #4** e utilizou o cliente interno de testes
+do Django.
 
-Os cenários devem validar, principalmente:
+Foram implementados três cenários:
 
-- tentativa de envio antes da abertura;
-- envio dentro do período permitido;
-- tentativa de envio depois do encerramento;
-- mensagens e redirecionamentos apresentados ao usuário.
+- tentativa de acesso antes da abertura das propostas;
+- criação de proposta durante o período permitido;
+- tentativa de criação depois do encerramento.
 
-Os comandos, arquivos e resultados definitivos são documentados em:
+Os testes foram implementados em:
 
 ```text
-documentacao/testes_devops.md
+acceptance_tests/test_proposal_window.py
 ```
 
-### 4.3 Integração contínua
+### 4.3 Integração contínua inicial
 
-Thiago ficou responsável pela criação e melhoria da integração contínua com GitHub Actions.
+Thiago ficou responsável pela implementação inicial da integração contínua com
+GitHub Actions.
 
-A atividade está associada ao **PR #5**.
+A atividade foi integrada pelo **PR #5**.
 
-Principais responsabilidades:
+Principais atividades:
 
-- criação do workflow;
-- configuração do ambiente da aplicação;
-- instalação das dependências;
-- preparação do banco ou serviços necessários;
+- criação do workflow do GitHub Actions;
+- instalação das dependências do projeto;
+- execução das verificações do Django;
 - execução dos testes automatizados;
 - validação dos resultados na aba Actions;
-- documentação das etapas da pipeline;
-- análise da solução existente e das melhorias realizadas.
+- configuração da execução automática em Pull Requests.
+
+Posteriormente, Nicholas complementou o workflow para:
+
+- executar toda a suíte com `python manage.py test -v 2`;
+- construir o ambiente com Docker;
+- iniciar o Selenium Server;
+- executar os testes em Google Chrome;
+- validar o Docker Compose;
+- remover containers e volumes mesmo em caso de falha.
 
 ### 4.4 Documentação
 
-Thiago ficou responsável ou participou diretamente de:
+Thiago participou diretamente da documentação relacionada a:
 
-- informações relacionadas à Issue #306;
-- documentação dos testes de aceitação;
-- documentação do GitHub Actions;
-- criação ou atualização de `documentacao/testes_devops.md`;
-- contribuição para o `README.md`;
-- registro das evidências de testes e CI.
+- Issue #306;
+- testes de aceitação iniciais;
+- configuração inicial do GitHub Actions;
+- informações utilizadas na documentação de testes e DevOps;
+- revisão de documentos e Pull Requests.
+
+A versão final de `documentacao/testes_devops.md`, incluindo os testes Selenium,
+Docker Compose, suíte completa e atualização do CI, foi concluída por Nicholas.
 
 ---
 
@@ -307,20 +337,30 @@ As revisões cruzadas foram utilizadas para:
 
 ## 6. Issues e Pull Requests relacionados
 
+### 6.1 Issues do projeto original
+
 | Item | Responsável principal | Conteúdo | Situação |
 |---|---|---|---|
-| Issue #304 | Nicholas | Data inicial para recebimento de propostas | Concluída |
-| PR #1 | Nicholas | Implementação de `accept_proposals_at` | Mesclado |
-| Issue #306 | Thiago | Restrição de propostas antes da abertura | Concluída |
-| PR #2 | Thiago | Implementação da Issue #306 | Mesclado |
-| PR #3 | Nicholas | Documentação da arquitetura do Speakerfight | Mesclado |
-| PR #4 | Thiago | Testes de aceitação com Selenium | Em andamento |
-| PR #5 | Thiago | GitHub Actions e integração contínua | Em andamento |
-| PR #6 | Nicholas | Testes de caracterização da listagem | Mesclado |
-| PR #7 | Nicholas | Refatorações e remoção de code smells | Mesclado |
-| PR #8 | Nicholas | Análise de qualidade com Radon | Mesclado |
-| PR #9 | Nicholas | Integração da análise em `trabalho-csi410` | Mesclado |
-| PR #10 | Nicholas | Documentação de padrões e code smells | Mesclado |
+| [Issue #304](https://github.com/luanfonceca/speakerfight/issues/304) | Nicholas | Data inicial para recebimento de propostas | Implementada |
+| [Issue #306](https://github.com/luanfonceca/speakerfight/issues/306) | Thiago | Restrição de propostas antes da abertura | Implementada |
+
+### 6.2 Pull Requests do fork
+
+| PR | Responsável principal | Conteúdo | Situação |
+|---|---|---|---|
+| [PR #1](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/1) | Nicholas | Implementação de `accept_proposals_at` | Mesclado |
+| [PR #2](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/2) | Thiago | Implementação da restrição antes da abertura | Mesclado |
+| [PR #3](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/3) | Nicholas | Documentação da arquitetura | Mesclado |
+| [PR #4](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/4) | Thiago | Testes de aceitação iniciais com o cliente Django | Mesclado |
+| [PR #5](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/5) | Thiago | Workflow inicial do GitHub Actions | Mesclado |
+| [PR #6](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/6) | Nicholas | Testes de caracterização da listagem | Mesclado |
+| [PR #7](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/7) | Nicholas | Refatorações e remoção de code smells | Mesclado |
+| [PR #8](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/8) | Nicholas | Análise de qualidade com Radon | Mesclado em `master` |
+| [PR #9](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/9) | Nicholas | Integração da análise de qualidade na branch de trabalho | Mesclado |
+| [PR #10](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/10) | Nicholas | Documentação de padrões e code smells | Mesclado |
+| [PR #11](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/11) | Nicholas | Registro das contribuições dos integrantes | Mesclado |
+| [PR #12](https://github.com/ONicholasAndrade/speakerfight---Eng-Soft-2/pull/12) | Thiago | Integração da branch de testes de aceitação em `master` | Mesclado |
+| PR #N | Nicholas | Testes Selenium, suíte completa, CI e documentação final | Em revisão |
 
 ---
 
@@ -335,17 +375,21 @@ As revisões cruzadas foram utilizadas para:
 | Code smells e refatorações | Principal | Revisão |
 | Padrões de projeto | Principal | Revisão |
 | Análise de qualidade | Principal | Revisão |
-| Testes de aceitação | Revisão | Principal |
-| GitHub Actions | Revisão | Principal |
-| Documentação de testes e DevOps | Colaboração | Principal |
-| README | Colaboração | Colaboração |
-| Validação final | Colaboração | Colaboração |
+| Testes de aceitação iniciais | Revisão | Principal |
+| Workflow inicial do GitHub Actions | Revisão | Principal |
+| Testes Selenium | Principal | Colaboração inicial nos cenários |
+| Atualização da suíte completa | Principal | — |
+| Atualização final do GitHub Actions | Principal | Implementação inicial |
+| Documentação final de testes e DevOps | Principal | Colaboração inicial |
+| README final | Principal | Colaboração inicial |
+| Revisões cruzadas | Participação | Participação |
+| Validação final | Principal | Colaboração |
 
 ---
 
 ## 8. Estratégia de desenvolvimento
 
-A branch de integração utilizada foi:
+Durante o desenvolvimento, a principal branch de integração utilizada foi:
 
 ```text
 trabalho-csi410
@@ -398,7 +442,7 @@ Apesar da divisão de responsabilidades, algumas atividades foram realizadas em 
 
 | Integrante | Principais responsabilidades |
 |---|---|
-| Nicholas Arthur Guimarães Andrade | Issue #304, arquitetura, testes de caracterização, code smells, refatorações, padrões de projeto, análise de qualidade e documentação relacionada |
-| Thiago | Issue #306, testes de aceitação, GitHub Actions, documentação de testes e DevOps |
-| Ambos | Revisões cruzadas, README, testes finais, validação dos PRs, organização da entrega|
+| Nicholas Arthur Guimarães Andrade | Issue #304, arquitetura, testes de caracterização, code smells, refatorações, padrões de projeto, análise de qualidade, testes Selenium, atualização final do CI, documentação de testes e revisão final do README |
+| Thiago Ker | Issue #306, testes de aceitação iniciais, configuração inicial do GitHub Actions e revisões |
+| Ambos | Definição do escopo, escolha das Issues, revisões cruzadas, validação das regras de negócio e organização do trabalho |
 
