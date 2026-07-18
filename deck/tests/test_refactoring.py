@@ -110,3 +110,33 @@ class ListEventsCharacterizationTests(TestCase):
             response.context['event_list'],
             ['<Event: Past Event>']
         )
+
+    def test_search_in_past_events_filters_only_past_events(self):
+        self.create_published_event(
+        title='Past Python Event',
+        description='Conference about Django',
+        closing_date=now() - timedelta(days=7)
+        )
+
+        self.create_published_event(
+            title='Future Python Event',
+            description='Conference about Django',
+            closing_date=now() + timedelta(days=7)
+        )
+
+        self.create_published_event(
+            title='Past Java Event',
+            description='Conference about Java',
+            closing_date=now() - timedelta(days=7)
+        )
+
+        response = self.client.get(
+            reverse('past_events'),
+            data={'search': 'Django'}
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertQuerysetEqual(
+            response.context['event_list'],
+            ['<Event: Past Python Event>']
+        )
