@@ -1,0 +1,25 @@
+services:
+
+  selenium:
+    image: selenium/standalone-chrome
+    ports:
+      - "4444:4444"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+
+    command: python manage.py runserver 0.0.0.0:8000
+
+    environment:
+      DJANGO_SETTINGS_MODULE: speakerfight.settings
+
+    volumes:
+      - .:/code
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      - selenium

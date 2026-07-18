@@ -1,4 +1,4 @@
--e git+https://github.com/azavea/django-queryset-csv.git@f71b905a4f7ab649b6ad093c3acf4fb82baf713b#egg=django_queryset_csv
+django-queryset-csv==1.1.0
 -e git+https://github.com/luzfcb/django-activelink.git@39a5640e90f0c13b6bb4f1b277ac4196b6d07bec#egg=django_activelink
 Django==1.11.12
 Fabric==1.14.0
@@ -29,7 +29,6 @@ django-extensions==2.0.7
 django-vanilla-views==1.0.5
 djangorestframework==3.8.2
 enum34==1.1.6
-fixmydjango==0.3.2
 greenlet==0.4.13
 idna==2.6
 ipaddress==1.0.22

@@ -1,6 +1,7 @@
-name: Django Tests
+name: Django CI
 
 on:
+
   pull_request:
     branches:
       - trabalho-csi410
@@ -11,9 +12,11 @@ on:
 
 
 jobs:
+
   tests:
 
     runs-on: ubuntu-latest
+
 
     steps:
 
@@ -21,16 +24,10 @@ jobs:
         uses: actions/checkout@v4
 
 
-      - name: Setup Python 2.7
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '2.7'
-
-
-      - name: Install Chrome dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser chromium-chromedriver
+          python-version: "2.7"
 
 
       - name: Install dependencies
@@ -39,16 +36,31 @@ jobs:
           pip install -r requirements-ci.txt
 
 
-      - name: Django system check
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+
+
+      - name: Django check
         env:
           DJANGO_SETTINGS_MODULE: speakerfight.settings
-        run: |
+        run:
+
           python manage.py check
 
 
-      - name: Run Django tests
+      - name: Run functional tests
         env:
           DJANGO_SETTINGS_MODULE: speakerfight.settings
-        run: |
+        run:
+
           python manage.py test deck.tests
+
+
+      - name: Run acceptance tests
+        env:
+          DJANGO_SETTINGS_MODULE: speakerfight.settings
+        run:
+
           python manage.py test acceptance_tests

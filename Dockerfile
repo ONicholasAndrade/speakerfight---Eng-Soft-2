@@ -1,7 +1,12 @@
 FROM python:2.7
-ENV PYTHONUNBUFFERED 1
+
 RUN mkdir /code
+
 WORKDIR /code
-ADD requirements.txt /code/
-RUN pip install -r requirements.txt
-ADD . /code/
+
+COPY requirements.txt /code/
+
+RUN sed '/fixmydjango==0.3.2/d' requirements.txt > requirements-ci.txt && \
+    pip install -r requirements-ci.txt
+
+COPY . /code/
