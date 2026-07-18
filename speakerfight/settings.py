@@ -43,7 +43,7 @@ TEMPLATES = [
             'loaders': [
                 'django.template.loaders.filesystem.Loader',
                 'django.template.loaders.app_directories.Loader',
-                    ],
+            ],
             'context_processors': [
                 'django.contrib.auth.context_processors.auth',
                 'django.template.context_processors.debug',
@@ -53,8 +53,8 @@ TEMPLATES = [
                 'django.template.context_processors.tz',
                 'django.template.context_processors.request',
                 'django.contrib.messages.context_processors.messages',
-            ],
-                },
+            ]
+        },
     },
 ]
 
@@ -85,6 +85,7 @@ DEFAULT_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    'activelink',
     'django_extensions',
     'vanilla',
     'bootstrap3',
@@ -178,6 +179,7 @@ MIDDLEWARE_CLASSES = global_settings.MIDDLEWARE_CLASSES + [
     'debug_toolbar.middleware.DebugToolbarMiddleware',
     'locale_middleware.LocaleMiddleware',
 ]
+
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
 

@@ -7,25 +7,30 @@ from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.urlresolvers import reverse
 from django.db import IntegrityError, models
-from django.template.loader import render_to_string
 from django.http import HttpResponse, HttpResponseRedirect
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext as _
 
-from vanilla import CreateView, DeleteView, DetailView, ListView, UpdateView
 from djqscsv import render_to_csv_response
+from vanilla import CreateView, DeleteView, DetailView, ListView, UpdateView
 
-from .models import Event, Proposal, Vote, Activity, get_activities_by_parameters_order
 from .forms import EventForm, ProposalForm, ActivityForm, ActivityTimetableForm
+from .models import (
+    Event,
+    Proposal,
+    Vote,
+    Activity,
+    get_activities_by_parameters_order,
+)
 from core.mixins import LoginRequiredMixin, FormValidRedirectMixing
+from deck.exceptions import EmptyActivitiesArrangementException
 from deck.permissions import has_manage_schedule_permission
 from deck.use_cases import initialize_event_schedule, rearrange_event_schedule
-from deck.exceptions import EmptyActivitiesArrangementException
-
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 
 class BaseEventView(object):
@@ -37,37 +42,56 @@ class BaseEventView(object):
 class ListEvents(BaseEventView, ListView):
     allow_empty = True
     past_events = False
+    events_per_page = 15
 
     def get_queryset(self):
         queryset = super(ListEvents, self).get_queryset()
         queryset = queryset.published_ones()
+        queryset = self.apply_filters(queryset)
 
-        # When it should only show past events
+        return self.paginate_events(queryset)
+
+    def apply_filters(self, queryset):
         if self.past_events:
-            queryset = queryset.filter(closing_date__lt=timezone.now())
+            queryset = self.filter_past_events(queryset)
 
-        criteria = self.request.GET.get(u'search', None)
+        criteria = self.get_search_criteria()
+
+        # Search is applied to the queryset after the past-events filter.
+        # In the regular list, searching preserves the original behavior and
+        # does not restrict the result to upcoming events.
         if criteria:
-            queryset = queryset.filter(
-                models.Q(title__icontains=criteria) |
-                models.Q(description__icontains=criteria)
-            )
-        elif not self.past_events:
-            queryset = queryset.upcoming()
+            return self.filter_by_search(queryset, criteria)
 
-        paginator = Paginator(queryset, 15)
+        if not self.past_events:
+            return queryset.upcoming()
+
+        return queryset
+
+    def filter_past_events(self, queryset):
+        return queryset.filter(
+            closing_date__lt=timezone.now()
+        )
+
+    def get_search_criteria(self):
+        return self.request.GET.get(u'search', None)
+
+    def filter_by_search(self, queryset, criteria):
+        return queryset.filter(
+            models.Q(title__icontains=criteria) |
+            models.Q(description__icontains=criteria)
+        )
+
+    def paginate_events(self, queryset):
+        paginator = Paginator(queryset, self.events_per_page)
         page = self.request.GET.get('page')
 
         try:
-            queryset = paginator.page(page)
+            return paginator.page(page)
         except PageNotAnInteger:
-            queryset = paginator.page(1)
+            return paginator.page(1)
         except EmptyPage:
-            # If page is out of range (e.g. 9999),
-            # deliver last page of results.
-            queryset = paginator.page(paginator.num_pages)
-
-        return queryset
+            return paginator.page(paginator.num_pages)
 
     def get_context_data(self, **kwargs):
         context = super(ListEvents, self).get_context_data(**kwargs)
@@ -75,7 +99,7 @@ class ListEvents(BaseEventView, ListView):
             page_obj=None,
             is_paginated=False,
             paginator=None,
-            criteria=self.request.GET.get(u'search', None),
+            criteria=self.get_search_criteria(),
         )
         return context
 
@@ -101,8 +125,12 @@ class CreateEvent(LoginRequiredMixin,
         context = {'event_title': event.title}
         message = render_to_string('mailing/event_created.txt', context)
         subject = _(u'Your event is ready to receive proposals')
-        send_mail(subject, message,
-                  settings.NO_REPLY_EMAIL, [event.author.email])
+        send_mail(
+            subject,
+            message,
+            settings.NO_REPLY_EMAIL,
+            [event.author.email]
+        )
 
 
 class DetailEvent(BaseEventView, DetailView):
@@ -112,14 +140,17 @@ class DetailEvent(BaseEventView, DetailView):
         context = super(DetailEvent, self).get_context_data(**kwargs)
         context['vote_rates'] = Vote.VOTE_RATES
         event_proposals = self.object.proposals.cached_authors()
+
         if self.object.user_can_see_proposals(self.request.user):
             if not self.request.user.is_anonymous():
                 event_proposals = event_proposals.order_by_never_voted(
-                    user_id=self.request.user.id)
+                    user_id=self.request.user.id
+                )
         elif not self.request.user.is_anonymous():
             event_proposals = event_proposals.filter(author=self.request.user)
         else:
             event_proposals = event_proposals.none()
+
         context.update(event_proposals=event_proposals)
         return context
 
@@ -141,13 +172,17 @@ class UpdateEvent(BaseEventView, UpdateView, FormValidRedirectMixing):
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
         event = self.get_object()
+
         if (event.author != self.request.user and
-           not self.request.user.is_superuser):
+                not self.request.user.is_superuser):
             messages.error(
-                self.request, _(u'You are not allowed to see this page.'))
+                self.request,
+                _(u'You are not allowed to see this page.')
+            )
             return HttpResponseRedirect(
                 reverse('view_event', kwargs={'slug': event.slug}),
             )
+
         return super(UpdateEvent, self).dispatch(*args, **kwargs)
 
 
@@ -163,23 +198,32 @@ class DeleteEvent(BaseEventView, DeleteView):
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
         event = self.get_object()
+
         if (event.author != self.request.user and
-           not self.request.user.is_superuser):
+                not self.request.user.is_superuser):
             messages.error(
-                self.request, _(u'You are not allowed to see this page.'))
+                self.request,
+                _(u'You are not allowed to see this page.')
+            )
             return HttpResponseRedirect(event.get_absolute_url())
+
         return super(DeleteEvent, self).dispatch(*args, **kwargs)
 
 
 class ExportEvent(BaseEventView, DetailView):
+
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
         event = self.get_object()
+
         if (event.author != self.request.user and
-           not self.request.user.is_superuser):
+                not self.request.user.is_superuser):
             messages.error(
-                self.request, _(u'You are not allowed to see this page.'))
+                self.request,
+                _(u'You are not allowed to see this page.')
+            )
             return HttpResponseRedirect(reverse('list_events'))
+
         return super(ExportEvent, self).dispatch(*args, **kwargs)
 
     def get(self, request, *args, **kwargs):
@@ -192,6 +236,7 @@ class ExportEvent(BaseEventView, DetailView):
             'votes__count': _('Votes Count'),
         }
         proposals = event.get_votes_to_export()
+
         return render_to_csv_response(
             proposals,
             append_datestamp=True,
@@ -212,26 +257,48 @@ class CreateEventSchedule(BaseEventView, DetailView):
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
         self.object = self.get_object()
+
         if not has_manage_schedule_permission(self.request.user, self.object):
             messages.error(
-                self.request, _(u'You are not allowed to see this page.'))
+                self.request,
+                _(u'You are not allowed to see this page.')
+            )
             return HttpResponseRedirect(
                 reverse('view_event', kwargs={'slug': self.object.slug}),
             )
+
         return super(CreateEventSchedule, self).dispatch(*args, **kwargs)
 
     def get(self, request, *args, **kwargs):
         initialize_event_schedule(self.object)
-        return super(CreateEventSchedule, self).get(request, *args, **kwargs)
+        return super(CreateEventSchedule, self).get(
+            request,
+            *args,
+            **kwargs
+        )
 
     def post(self, request, *args, **kwargs):
-        approved_activities_pks = self.request.POST.getlist('approved_activities')
-        new_activites_arrange = get_activities_by_parameters_order(approved_activities_pks)
+        approved_activities_pks = self.request.POST.getlist(
+            'approved_activities'
+        )
+        new_activites_arrange = get_activities_by_parameters_order(
+            approved_activities_pks
+        )
+
         try:
             rearrange_event_schedule(self.object, new_activites_arrange)
         except EmptyActivitiesArrangementException:
-             messages.error(self.request, _(u'You must pass at least one activity.'))
-        return HttpResponseRedirect(reverse('create_event_schedule', kwargs={'slug': self.object.slug}))
+            messages.error(
+                self.request,
+                _(u'You must pass at least one activity.')
+            )
+
+        return HttpResponseRedirect(
+            reverse(
+                'create_event_schedule',
+                kwargs={'slug': self.object.slug}
+            )
+        )
 
 
 class DetailEventSchedule(BaseEventView, DetailView):
@@ -242,6 +309,72 @@ class BaseProposalView(object):
     model = Proposal
     form_class = ProposalForm
     lookup_field = 'slug'
+
+
+class ProposalActionView(BaseProposalView, UpdateView):
+
+    def user_has_permission(self, proposal):
+        raise NotImplementedError
+
+    def get_view_event_url(self, proposal):
+        return reverse(
+            'view_event',
+            kwargs={'slug': proposal.event.slug}
+        )
+
+    def get_login_redirect_url(self):
+        return u'{}?{}={}'.format(
+            settings.LOGIN_URL,
+            REDIRECT_FIELD_NAME,
+            self.request.META.get('PATH_INFO')
+        )
+
+    def get_denied_response(self, proposal, message, redirect_url):
+        if self.request.method == 'GET':
+            messages.error(self.request, message)
+            return HttpResponseRedirect(
+                self.get_view_event_url(proposal)
+            )
+
+        response = {
+            'message': message,
+            'redirectUrl': redirect_url,
+        }
+
+        return HttpResponse(
+            json.dumps(response),
+            status=401,
+            content_type='application/json'
+        )
+
+    def dispatch(self, *args, **kwargs):
+        proposal = self.get_object()
+
+        if not self.request.user.is_authenticated():
+            message = _(
+                u'You need to be logged in to '
+                u'continue to the next step.'
+            )
+
+            return self.get_denied_response(
+                proposal,
+                message,
+                self.get_login_redirect_url()
+            )
+
+        if not self.user_has_permission(proposal):
+            message = _(u'You are not allowed to see this page.')
+
+            return self.get_denied_response(
+                proposal,
+                message,
+                u''
+            )
+
+        return super(ProposalActionView, self).dispatch(
+            *args,
+            **kwargs
+        )
 
 
 class CreateProposal(LoginRequiredMixin,
@@ -258,21 +391,30 @@ class CreateProposal(LoginRequiredMixin,
     def get(self, request, *args, **kwargs):
         data = self.get_context_data()
         event = data.get('event')
+
         if event.closing_date_is_passed:
             messages.error(
                 self.request,
-                _(u"This Event doesn't accept Proposals anymore."))
-            return HttpResponseRedirect(
-            reverse('view_event', kwargs={'slug': event.slug}),
+                _(u"This Event doesn't accept Proposals anymore.")
             )
-        if event.accept_proposals_at_not_reached:
-            messages.error(
-                self.request,
-                _(u"This Event doesn't accept Proposals yet."))
             return HttpResponseRedirect(
                 reverse('view_event', kwargs={'slug': event.slug}),
             )
-        return super(CreateProposal, self).get(request, *args, **kwargs)
+
+        if event.accept_proposals_at_not_reached:
+            messages.error(
+                self.request,
+                _(u"This Event doesn't accept Proposals yet.")
+            )
+            return HttpResponseRedirect(
+                reverse('view_event', kwargs={'slug': event.slug}),
+            )
+
+        return super(CreateProposal, self).get(
+            request,
+            *args,
+            **kwargs
+        )
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
@@ -284,7 +426,10 @@ class CreateProposal(LoginRequiredMixin,
         except (IntegrityError, ValidationError) as e:
             messages.error(self.request, e.message)
             return HttpResponseRedirect(
-                reverse('view_event', kwargs={'slug': self.object.event.slug}),
+                reverse(
+                    'view_event',
+                    kwargs={'slug': self.object.event.slug}
+                ),
             )
 
         if settings.SEND_NOTIFICATIONS:
@@ -301,8 +446,16 @@ class CreateProposal(LoginRequiredMixin,
         }
         message = render_to_string('mailing/jury_new_proposal.txt', context)
         subject = _(u'Your event has new proposals')
-        recipients = proposal.event.jury.users.values_list('email', flat=True)
-        send_mail(subject, message, settings.NO_REPLY_EMAIL, recipients)
+        recipients = proposal.event.jury.users.values_list(
+            'email',
+            flat=True
+        )
+        send_mail(
+            subject,
+            message,
+            settings.NO_REPLY_EMAIL,
+            recipients
+        )
 
     def send_proposal_creation_email(self):
         proposal = self.object
@@ -311,10 +464,17 @@ class CreateProposal(LoginRequiredMixin,
             'proposal_title': proposal.title
         }
         message = render_to_string(
-            'mailing/author_proposal_created.txt', context)
+            'mailing/author_proposal_created.txt',
+            context
+        )
         subject = _(u'Your proposal was submitted')
         recipients = [proposal.author.email]
-        send_mail(subject, message, settings.NO_REPLY_EMAIL, recipients)
+        send_mail(
+            subject,
+            message,
+            settings.NO_REPLY_EMAIL,
+            recipients
+        )
 
 
 class ListMyProposals(LoginRequiredMixin, BaseProposalView, ListView):
@@ -332,7 +492,9 @@ class UpdateProposal(LoginRequiredMixin,
 
     def get_context_data(self, **kwargs):
         context = super(UpdateProposal, self).get_context_data(**kwargs)
-        context['event'] = Event.objects.get(slug=self.kwargs['event_slug'])
+        context['event'] = Event.objects.get(
+            slug=self.kwargs['event_slug']
+        )
         return context
 
     def form_valid(self, form):
@@ -352,15 +514,25 @@ class DeleteProposal(BaseProposalView, DeleteView):
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
         proposal = self.get_object()
+
         if (proposal.author != self.request.user and
-           not self.request.user.is_superuser):
+                not self.request.user.is_superuser):
             messages.error(
-                self.request, _(u'You are not allowed to see this page.'))
-            return HttpResponseRedirect(proposal.event.get_absolute_url())
+                self.request,
+                _(u'You are not allowed to see this page.')
+            )
+            return HttpResponseRedirect(
+                proposal.event.get_absolute_url()
+            )
+
         return super(DeleteProposal, self).dispatch(*args, **kwargs)
 
 
-class RateProposal(BaseProposalView, UpdateView):
+class RateProposal(ProposalActionView):
+
+    def user_has_permission(self, proposal):
+        return proposal.user_can_vote(self.request.user)
+
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         rate = kwargs.get('rate')
@@ -377,10 +549,12 @@ class RateProposal(BaseProposalView, UpdateView):
             response_status = 400
         else:
             response_content['message'] = _(u'Proposal rated.')
+
         return HttpResponse(
             json.dumps(response_content),
             status=response_status,
-            content_type='application/json')
+            content_type='application/json'
+        )
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -389,52 +563,26 @@ class RateProposal(BaseProposalView, UpdateView):
         try:
             self.object.rate(self.request.user, rate)
         except IndexError:
-            messages.error(self.request, _(u'Rate Index not found.'))
+            messages.error(
+                self.request,
+                _(u'Rate Index not found.')
+            )
         except (IntegrityError, ValidationError) as e:
             messages.error(self.request, e.message)
         else:
-            messages.success(self.request, _(u'Proposal rated.'))
+            messages.success(
+                self.request,
+                _(u'Proposal rated.')
+            )
+
         return HttpResponseRedirect(self.get_success_url())
 
-    def dispatch(self, *args, **kwargs):
-        proposal = self.get_object()
-        view_event_url = reverse(
-            'view_event', kwargs={'slug': proposal.event.slug})
 
-        if not self.request.user.is_authenticated():
-            message = _(u'You need to be logged in to '
-                        u'continue to the next step.')
-            if self.request.method == 'GET':
-                messages.error(self.request, message)
-                return HttpResponseRedirect(view_event_url)
-            response = {}
-            response['message'] = message
-            response['redirectUrl'] = u'{}?{}={}'.format(
-                settings.LOGIN_URL,
-                REDIRECT_FIELD_NAME,
-                self.request.META.get('PATH_INFO')
-            )
-            return HttpResponse(
-                json.dumps(response),
-                status=401,
-                content_type='application/json')
-        elif not proposal.user_can_vote(self.request.user):
-            message = _(u'You are not allowed to see this page.')
-            if self.request.method == 'GET':
-                messages.error(self.request, message)
-                return HttpResponseRedirect(view_event_url)
-            response = {}
-            response['message'] = message
-            response['redirectUrl'] = ''
-            return HttpResponse(
-                json.dumps(response),
-                status=401,
-                content_type='application/json'
-            )
-        return super(RateProposal, self).dispatch(*args, **kwargs)
+class ApproveProposal(ProposalActionView):
 
+    def user_has_permission(self, proposal):
+        return proposal.user_can_approve(self.request.user)
 
-class ApproveProposal(BaseProposalView, UpdateView):
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         response_content = {}
@@ -447,10 +595,12 @@ class ApproveProposal(BaseProposalView, UpdateView):
             response_status = 400
         else:
             response_content['message'] = _(u'Proposal approved.')
+
         return HttpResponse(
             json.dumps(response_content),
             status=response_status,
-            content_type='application/json')
+            content_type='application/json'
+        )
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -460,48 +610,19 @@ class ApproveProposal(BaseProposalView, UpdateView):
         except (IntegrityError, ValidationError) as e:
             messages.error(self.request, e.message)
         else:
-            messages.success(self.request, _(u'Proposal approved.'))
+            messages.success(
+                self.request,
+                _(u'Proposal approved.')
+            )
+
         return HttpResponseRedirect(self.get_success_url())
 
-    def dispatch(self, *args, **kwargs):
-        proposal = self.get_object()
-        view_event_url = reverse(
-            'view_event', kwargs={'slug': proposal.event.slug})
 
-        if not self.request.user.is_authenticated():
-            message = _(u'You need to be logged in to '
-                        u'continue to the next step.')
-            if self.request.method == 'GET':
-                messages.error(self.request, message)
-                return HttpResponseRedirect(view_event_url)
-            response = {}
-            response['message'] = message
-            response['redirectUrl'] = u'{}?{}={}'.format(
-                settings.LOGIN_URL,
-                REDIRECT_FIELD_NAME,
-                self.request.META.get('PATH_INFO')
-            )
-            return HttpResponse(
-                json.dumps(response),
-                status=401,
-                content_type='application/json')
-        elif not proposal.user_can_approve(self.request.user):
-            message = _(u'You are not allowed to see this page.')
-            if self.request.method == 'GET':
-                messages.error(self.request, message)
-                return HttpResponseRedirect(view_event_url)
-            response = {}
-            response['message'] = message
-            response['redirectUrl'] = ''
-            return HttpResponse(
-                json.dumps(response),
-                status=401,
-                content_type='application/json'
-            )
-        return super(ApproveProposal, self).dispatch(*args, **kwargs)
+class DisapproveProposal(ProposalActionView):
 
+    def user_has_permission(self, proposal):
+        return proposal.user_can_approve(self.request.user)
 
-class DisapproveProposal(BaseProposalView, UpdateView):
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         response_content = {}
@@ -514,10 +635,12 @@ class DisapproveProposal(BaseProposalView, UpdateView):
             response_status = 400
         else:
             response_content['message'] = _(u'Proposal disapproved.')
+
         return HttpResponse(
             json.dumps(response_content),
             status=response_status,
-            content_type='application/json')
+            content_type='application/json'
+        )
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -527,42 +650,9 @@ class DisapproveProposal(BaseProposalView, UpdateView):
         except (IntegrityError, ValidationError) as e:
             messages.error(self.request, e.message)
         else:
-            messages.success(self.request, _(u'Proposal disapproved.'))
+            messages.success(
+                self.request,
+                _(u'Proposal disapproved.')
+            )
+
         return HttpResponseRedirect(self.get_success_url())
-
-    def dispatch(self, *args, **kwargs):
-        proposal = self.get_object()
-        view_event_url = reverse(
-            'view_event', kwargs={'slug': proposal.event.slug})
-
-        if not self.request.user.is_authenticated():
-            message = _(u'You need to be logged in to '
-                        u'continue to the next step.')
-            if self.request.method == 'GET':
-                messages.error(self.request, message)
-                return HttpResponseRedirect(view_event_url)
-            response = {}
-            response['message'] = message
-            response['redirectUrl'] = u'{}?{}={}'.format(
-                settings.LOGIN_URL,
-                REDIRECT_FIELD_NAME,
-                self.request.META.get('PATH_INFO')
-            )
-            return HttpResponse(
-                json.dumps(response),
-                status=401,
-                content_type='application/json')
-        elif not proposal.user_can_approve(self.request.user):
-            message = _(u'You are not allowed to see this page.')
-            if self.request.method == 'GET':
-                messages.error(self.request, message)
-                return HttpResponseRedirect(view_event_url)
-            response = {}
-            response['message'] = message
-            response['redirectUrl'] = ''
-            return HttpResponse(
-                json.dumps(response),
-                status=401,
-                content_type='application/json'
-            )
-        return super(DisapproveProposal, self).dispatch(*args, **kwargs)

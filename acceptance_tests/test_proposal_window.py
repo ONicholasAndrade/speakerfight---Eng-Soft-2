@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
-
 from datetime import timedelta
 
 from django.test import TestCase
 from django.contrib.auth.models import User
+from django.core.urlresolvers import reverse
 from django.utils.timezone import now
 
 from model_mommy import mommy
@@ -14,7 +13,6 @@ from deck.models import Event, Proposal
 class ProposalWindowAcceptanceTests(TestCase):
 
     def setUp(self):
-
         self.user = User.objects.create_user(
             username='thiago',
             password='123456'
@@ -26,7 +24,7 @@ class ProposalWindowAcceptanceTests(TestCase):
         )
 
 
-    def test_before_opening_date_blocks_access(self):
+    def test_user_cannot_access_proposal_before_opening_date(self):
 
         event = mommy.make(
             Event,
@@ -35,16 +33,21 @@ class ProposalWindowAcceptanceTests(TestCase):
         )
 
         response = self.client.get(
-            '/events/{}/proposals/create/'.format(event.slug)
+            reverse(
+                'create_event_proposal',
+                args=[event.slug]
+            )
         )
+
+        self.assertEqual(response.status_code, 302)
 
         self.assertEqual(
-            response.status_code,
-            302
+            Proposal.objects.count(),
+            0
         )
 
 
-    def test_create_proposal_after_opening_date(self):
+    def test_user_can_create_proposal_after_opening_date(self):
 
         event = mommy.make(
             Event,
@@ -52,26 +55,17 @@ class ProposalWindowAcceptanceTests(TestCase):
             closing_date=now() + timedelta(days=5)
         )
 
-        proposal = mommy.make(
-            Proposal,
-            event=event,
-            author=self.user,
-            title='Proposta Selenium',
-            description='Descricao criada pelo teste'
+        response = self.client.get(
+            reverse(
+                'create_event_proposal',
+                args=[event.slug]
+            )
         )
 
-        self.assertEqual(
-            Proposal.objects.count(),
-            1
-        )
-
-        self.assertEqual(
-            proposal.event,
-            event
-        )
+        self.assertEqual(response.status_code, 200)
 
 
-    def test_after_closing_date_blocks_access(self):
+    def test_user_cannot_create_proposal_after_closing_date(self):
 
         event = mommy.make(
             Event,
@@ -80,10 +74,10 @@ class ProposalWindowAcceptanceTests(TestCase):
         )
 
         response = self.client.get(
-            '/events/{}/proposals/create/'.format(event.slug)
+            reverse(
+                'create_event_proposal',
+                args=[event.slug]
+            )
         )
 
-        self.assertEqual(
-            response.status_code,
-            302
-        )
+        self.assertEqual(response.status_code, 302)
