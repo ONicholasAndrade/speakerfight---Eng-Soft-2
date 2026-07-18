@@ -1,46 +1,36 @@
-name: Django Tests
+name: Django and Selenium Tests
 
 on:
   pull_request:
     branches:
+      - master
       - trabalho-csi410
-
   push:
     branches:
+      - master
       - trabalho-csi410
-
 
 jobs:
   tests:
-
     runs-on: ubuntu-latest
 
-    container:
-      image: python:2.7
-
-
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate Docker Compose configuration
+        run: docker compose -f docker-compose.acceptance.yml config
 
-      - name: Install dependencies
+      - name: Run Django and Selenium tests
         run: |
-          sed '/fixmydjango==0.3.2/d' requirements.txt > requirements-ci.txt
-          pip install -r requirements-ci.txt
+          docker compose -f docker-compose.acceptance.yml up \
+            --build \
+            --abort-on-container-exit \
+            --exit-code-from web
 
-
-      - name: Django system check
-        env:
-          DJANGO_SETTINGS_MODULE: speakerfight.settings
+      - name: Stop test containers
+        if: always()
         run: |
-          python manage.py check
-
-
-      - name: Run Django tests
-        env:
-          DJANGO_SETTINGS_MODULE: speakerfight.settings
-        run: |
-          python manage.py test deck.tests
-          python manage.py test acceptance_tests
+          docker compose -f docker-compose.acceptance.yml down \
+            --volumes \
+            --remove-orphans

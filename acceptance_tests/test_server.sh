@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/sh
+set -e
 
-python manage.py runserver 0.0.0.0:8000 &
-sleep 5
+cp speakerfight/ci_local_settings.py speakerfight/local_settings.py
 
-python manage.py test acceptance_tests
+python manage.py check
+python manage.py test -v 2
