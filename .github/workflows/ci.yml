@@ -1,7 +1,6 @@
-name: Django CI
+name: Django Tests
 
 on:
-
   pull_request:
     branches:
       - trabalho-csi410
@@ -12,10 +11,12 @@ on:
 
 
 jobs:
-
   tests:
 
     runs-on: ubuntu-latest
+
+    container:
+      image: python:2.7
 
 
     steps:
