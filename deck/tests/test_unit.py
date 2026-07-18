@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import six
 from django.db.models import (CharField, TextField,
                               BooleanField, ForeignKey,
-                              SmallIntegerField)
+                              SmallIntegerField, DateTimeField)
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext as _
 from django.utils.timezone import now, timedelta
@@ -84,6 +84,24 @@ class EventModelIntegrityTest(TestCase):
 
     def test_assert_event_allow_public_voting_should_be_True_as_default(self):
         self.assertEquals(True, self.fields['allow_public_voting'].default)
+
+    def test_assert_event_should_have_accept_proposals_at(self):
+        self.assertIn(
+            'accept_proposals_at',
+            get_all_field_names(Event)
+        )
+
+    def test_assert_event_accept_proposals_at_should_be_a_DateTimeField(self):
+        self.assertIsInstance(
+            self.fields['accept_proposals_at'],
+            DateTimeField
+        )
+
+    def test_assert_event_accept_proposals_at_should_allow_null(self):
+        self.assertEquals(
+            True,
+            self.fields['accept_proposals_at'].null
+        )
 
     def test_assert_event_should_have_a_author(self):
         self.assertIn('author', get_all_field_names(Event))

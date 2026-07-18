@@ -210,6 +210,9 @@ class Proposal(Activity):
         if not self.pk and self.event.closing_date_is_passed:
             raise ValidationError(
                 _("This Event doesn't accept Proposals anymore."))
+        if not self.pk and self.event.accept_proposals_at_not_reached:
+            raise ValidationError(
+                _("This Event doesn't accept Proposals yet."))
         return super(Proposal, self).save(*args, **kwargs)
 
     @property
@@ -233,16 +236,45 @@ class Proposal(Activity):
         return self.votes.filter(user=user).exists()
 
     def user_can_vote(self, user):
-        can_vote = False
-        if self.author == user and not self.event.author == user:
-            pass
-        elif self.event.allow_public_voting:
-            can_vote = True
-        elif user.is_superuser:
-            can_vote = True
-        elif self.event.jury.users.filter(pk=user.pk).exists():
-            can_vote = True
-        return can_vote
+        for rule in self.get_voting_rules():
+            decision = rule(user)
+
+            if decision is not None:
+                return decision
+
+        return False
+
+    def get_voting_rules(self):
+        return (
+            self._deny_proposal_author_vote,
+            self._allow_public_vote,
+            self._allow_superuser_vote,
+            self._allow_jury_vote,
+        )
+
+    def _deny_proposal_author_vote(self, user):
+        if self.author == user and self.event.author != user:
+            return False
+
+        return None
+
+    def _allow_public_vote(self, user):
+        if self.event.allow_public_voting:
+            return True
+
+        return None
+
+    def _allow_superuser_vote(self, user):
+        if user.is_superuser:
+            return True
+
+        return None
+
+    def _allow_jury_vote(self, user):
+        if self.event.jury.users.filter(pk=user.pk).exists():
+            return True
+
+        return None
 
     def user_can_approve(self, user):
         can_approve = False
@@ -315,6 +347,10 @@ class Track(models.Model):
 class Event(DeckBaseModel):
     allow_public_voting = models.BooleanField(_('Allow Public Voting'),
                                               default=True)
+    accept_proposals_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
     closing_date = models.DateTimeField(null=False, blank=False)
     slots = models.SmallIntegerField(_('Slots'), default=10)
 
@@ -332,6 +368,11 @@ class Event(DeckBaseModel):
     @property
     def closing_date_is_passed(self):
         return timezone.now() > self.closing_date
+    @property
+    def accept_proposals_at_not_reached(self):
+        if not self.accept_proposals_at:
+            return False
+        return timezone.now() < self.accept_proposals_at
 
     @property
     def closing_date_is_close(self):

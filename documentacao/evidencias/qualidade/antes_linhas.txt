@@ -1,0 +1,36 @@
+.quality-analysis/antes/views.py
+    LOC: 567
+    LLOC: 380
+    SLOC: 474
+    Comments: 3
+    Single comments: 3
+    Multi: 0
+    Blank: 90
+    - Comment Stats
+        (C % L): 1%
+        (C % S): 1%
+        (C + M % L): 1%
+.quality-analysis/antes/models.py
+    LOC: 444
+    LLOC: 287
+    SLOC: 353
+    Comments: 7
+    Single comments: 7
+    Multi: 0
+    Blank: 84
+    - Comment Stats
+        (C % L): 2%
+        (C % S): 2%
+        (C + M % L): 2%
+** Total **
+    LOC: 1011
+    LLOC: 667
+    SLOC: 827
+    Comments: 10
+    Single comments: 10
+    Multi: 0
+    Blank: 174
+    - Comment Stats
+        (C % L): 1%
+        (C % S): 1%
+        (C + M % L): 1%
